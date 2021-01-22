@@ -37,6 +37,7 @@ struct StatusInfo {
     func: StatusFunc,
     orig: u64
 }
+
 extern "C" {
     #[link_name = "\u{1}_ZN7lua2cpp12L2CAgentBase18sv_set_status_funcERKN3lib8L2CValueES4_Pv"]
     fn status_internal_sv_set_status_func(this: &lua2cpp::L2CAgentBase, status_kind: &lib::L2CValue, lua_script: &lib::L2CValue, func: u64);
@@ -101,9 +102,21 @@ fn nro_main(nro: &NroInfo) {
                 let end = base + 0xfffffff;  // Can't seem to figure out nro_size, but this value is safe
 
                 let nro = Nro{start: base, end: end};
-                debugln!("[status_hook] {}: 0x{:x} - 0x{:x}", name, base, end);
+                debugln!("[status_hook] Loaded {}: 0x{:x} - 0x{:x}", name, base, end);
                 NRO_MAP.lock().unwrap().insert(String::from(name), nro);
             }
+        }
+    }
+}
+
+fn nro_unload(nro: &NroInfo) {
+    match nro.name {
+        "common" => {
+            // ?????????
+        }
+        name => {
+            NRO_MAP.lock().unwrap().remove(&String::from(name)).unwrap();
+            debugln!("[status_hook]: Unloaded {}", name);
         }
     }
 }
@@ -145,9 +158,15 @@ pub extern "Rust" fn call_original(
     lib::L2CValue::new_int(0)
 }
 
-
 #[skyline::main(name = "status_hook")]
 pub fn main() {
     println!("[status_hook] Hello from status_hook!");
     nro::add_hook(nro_main).unwrap();
+    unsafe {
+        add_nro_unload_hook(nro_unload);
+    }
+}
+
+extern "Rust" {
+    pub fn add_nro_unload_hook(callback: fn(&NroInfo)) -> skyline::libc::c_int;
 }
